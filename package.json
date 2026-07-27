@@ -1,11 +1,17 @@
 {
   "name": "n8n-nodes-auphonic",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "n8n community node for Auphonic: a trigger that starts a workflow when a production finishes processing, and an action to create and start new productions.",
   "license": "MIT",
   "homepage": "https://auphonic.com",
-  "keywords": ["n8n-community-node-package"],
-  "author": { "name": "Auphonic", "email": "support@auphonic.com", "url": "https://auphonic.com" },
+  "keywords": [
+    "n8n-community-node-package"
+  ],
+  "author": {
+    "name": "Auphonic",
+    "email": "support@auphonic.com",
+    "url": "https://auphonic.com"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/auphonic/n8n-nodes-auphonic.git"
@@ -19,12 +25,18 @@
     "release": "n8n-node release",
     "prepublishOnly": "n8n-node prerelease"
   },
-  "files": ["dist"],
-  "publishConfig": { "access": "public" },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "n8n": {
     "n8nNodesApiVersion": 1,
     "strict": true,
-    "credentials": ["dist/credentials/AuphonicApi.credentials.js"],
+    "credentials": [
+      "dist/credentials/AuphonicApi.credentials.js"
+    ],
     "nodes": [
       "dist/nodes/Auphonic/Auphonic.node.js",
       "dist/nodes/Auphonic/AuphonicTrigger.node.js"
@@ -38,5 +50,7 @@
     "release-it": "^19.0.4",
     "typescript": "5.9.2"
   },
-  "peerDependencies": { "n8n-workflow": "*" }
+  "peerDependencies": {
+    "n8n-workflow": "*"
+  }
 }

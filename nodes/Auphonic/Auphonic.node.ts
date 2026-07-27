@@ -24,6 +24,39 @@ interface AuphonicResponse {
   data: IDataObject;
 }
 
+/**
+ * Reduce a full production object (~40 fields) to the most-used ones, with
+ * nested values flattened. Keeps every field the output-routing flow relies on
+ * (each output file's download_url, filename, format, ending).
+ */
+function simplifyProduction(production: IDataObject): IDataObject {
+  const metadata = (production.metadata as IDataObject) ?? {};
+  const outputFiles = ((production.output_files as IDataObject[]) ?? []).map(
+    (file) => ({
+      filename: file.filename,
+      format: file.format,
+      ending: file.ending,
+      size: file.size_string,
+      download_url: file.download_url,
+    }),
+  );
+
+  const simplified: IDataObject = {
+    uuid: production.uuid,
+    status: production.status_string,
+    title: metadata.title,
+    length: production.length_timestring,
+    format: production.format,
+    has_video: production.has_video,
+    output_files: outputFiles,
+    status_page: production.status_page,
+  };
+  if (production.warning_message) {
+    simplified.warning = production.warning_message;
+  }
+  return simplified;
+}
+
 export class Auphonic implements INodeType {
   description: INodeTypeDescription = {
     displayName: "Auphonic",
@@ -64,18 +97,18 @@ export class Auphonic implements INodeType {
           {
             name: "Create",
             value: "create",
-            action: "Create a production",
+            action: "Create production",
             description: "Submit an audio file to Auphonic for processing",
           },
           {
             name: "Download Output File",
             value: "download",
-            action: "Download an output file",
+            action: "Download output file",
             description:
               "Download an output file's binary using its download URL",
           },
           {
-            name: "Get Production Details",
+            name: "Get",
             value: "get",
             action: "Get production details",
             description: "Retrieve details of a production by UUID",
@@ -91,7 +124,7 @@ export class Auphonic implements INodeType {
         required: true,
         displayOptions: { show: { operation: ["get"] } },
         description:
-          "UUID of the production to retrieve. Defaults to the uuid field of the incoming item (e.g. from the Auphonic Trigger).",
+          "UUID of the production to retrieve. Defaults to the 'uuid' field of the incoming item (e.g. from the Auphonic Trigger).",
       },
       {
         displayName: "Download URL",
@@ -101,7 +134,7 @@ export class Auphonic implements INodeType {
         required: true,
         displayOptions: { show: { operation: ["download"] } },
         description:
-          "Authenticated Auphonic download URL of the output file. Defaults to the download_url field of the incoming item (e.g. after a Split Out on output_files).",
+          "Authenticated Auphonic download URL of the output file. Defaults to the 'download_url' field of the incoming item (e.g. after a Split Out on 'output_files').",
       },
       {
         displayName: "Put Output In Field",
@@ -187,7 +220,7 @@ export class Auphonic implements INodeType {
               rows: 4,
             },
             default: "",
-            placeholder: "00:00:00 Intro\n00:05:30 Interview\n00:25:00 Outro",
+            placeholder: "e.g. 00:00:00 Intro\n00:05:30 Interview\n00:25:00 Outro",
             description: "Chapter marks for this production",
           },
           {
@@ -231,6 +264,15 @@ export class Auphonic implements INodeType {
           },
         ],
       },
+      {
+        displayName: "Simplify",
+        name: "simplify",
+        type: "boolean",
+        default: true,
+        displayOptions: { show: { operation: ["create", "get"] } },
+        description:
+          "Whether to return a simplified subset of the production (status, title, output files, etc.) instead of the full raw API response",
+      },
     ],
   };
 
@@ -245,18 +287,22 @@ export class Auphonic implements INodeType {
           {
             method: "GET",
             url: `${AUPHONIC_BASE_URL}/presets.json`,
-            qs: {
-              minimal_data: 1,
-              limit: 100,
-            },
+            qs: { minimal_data: 1, limit: 100 },
             json: true,
           },
         )) as AuphonicResponse;
 
         if (response.status_code !== 200) {
-          throw new NodeApiError(this.getNode(), {
-            message: `Failed to load presets: ${response.error_message}, httpStatus: ${response.status_code}`,
-          });
+          throw new NodeApiError(
+            this.getNode(),
+            {
+              message: `Could not load presets from Auphonic (HTTP ${response.status_code}): ${response.error_message}`,
+            },
+            {
+              description:
+                "Check that your Auphonic API credentials are valid and can access presets.",
+            },
+          );
         }
 
         return (response.data as unknown as AuphonicPreset[]).map((preset) => ({
@@ -399,13 +445,22 @@ export class Auphonic implements INodeType {
           if (response.status_code !== 200) {
             throw new NodeOperationError(
               this.getNode(),
-              `Auphonic API error: ${response.error_message}`,
-              { itemIndex: i },
+              `Auphonic could not create the production (HTTP ${response.status_code}): ${response.error_message}`,
+              {
+                itemIndex: i,
+                description:
+                  "Check the selected preset and input file, then run the node again.",
+              },
             );
           }
 
+          const simplify = this.getNodeParameter(
+            "simplify",
+            i,
+            true,
+          ) as boolean;
           returnData.push({
-            json: response.data,
+            json: simplify ? simplifyProduction(response.data) : response.data,
             pairedItem: { item: i },
           });
         } else if (operation === "get") {
@@ -424,13 +479,24 @@ export class Auphonic implements INodeType {
           if (rawResponse.status_code !== 200) {
             throw new NodeOperationError(
               this.getNode(),
-              `Auphonic API error: ${rawResponse.error_message}`,
-              { itemIndex: i },
+              `Auphonic could not fetch the production (HTTP ${rawResponse.status_code}): ${rawResponse.error_message}`,
+              {
+                itemIndex: i,
+                description:
+                  "Verify the production UUID exists and your credentials have access to it.",
+              },
             );
           }
 
+          const simplify = this.getNodeParameter(
+            "simplify",
+            i,
+            true,
+          ) as boolean;
           returnData.push({
-            json: rawResponse.data,
+            json: simplify
+              ? simplifyProduction(rawResponse.data)
+              : rawResponse.data,
             pairedItem: { item: i },
           });
         } else if (operation === "download") {
@@ -444,22 +510,35 @@ export class Auphonic implements INodeType {
           ) as string;
           const fileName = this.getNodeParameter("fileName", i, "") as string;
 
-          const responseBuffer =
-            (await this.helpers.httpRequestWithAuthentication.call(
-              this,
-              "auphonicApi",
+          let responseBuffer: Buffer;
+          try {
+            responseBuffer =
+              (await this.helpers.httpRequestWithAuthentication.call(
+                this,
+                "auphonicApi",
+                {
+                  method: "GET",
+                  url: downloadUrl,
+                  encoding: "arraybuffer",
+                  returnFullResponse: false,
+                  // Auphonic download URLs 302-redirect to storage (S3) with a
+                  // presigned URL. Forwarding the Authorization header to that
+                  // cross-origin target makes S3 reject the request with 400
+                  // (two auth mechanisms). Don't send credentials on redirect.
+                  sendCredentialsOnCrossOriginRedirect: false,
+                },
+              )) as Buffer;
+          } catch (error) {
+            throw new NodeOperationError(
+              this.getNode(),
+              `Auphonic could not download the output file: ${(error as Error).message}`,
               {
-                method: "GET",
-                url: downloadUrl,
-                encoding: "arraybuffer",
-                returnFullResponse: false,
-                // Auphonic download URLs 302-redirect to storage (S3) with a
-                // presigned URL. Forwarding the Authorization header to that
-                // cross-origin target makes S3 reject the request with 400
-                // (two auth mechanisms). Don't send credentials on redirect.
-                sendCredentialsOnCrossOriginRedirect: false,
+                itemIndex: i,
+                description:
+                  "Check that the download URL is current — Auphonic links can expire. Re-fetch the production to get a fresh 'download_url'.",
               },
-            )) as Buffer;
+            );
+          }
 
           const resolvedName =
             fileName || downloadUrl.split("/").pop() || "download";
@@ -482,8 +561,13 @@ export class Auphonic implements INodeType {
           });
           continue;
         }
+        // Re-wrap as NodeApiError (an existing NodeApiError is returned as-is),
+        // carrying over our custom message and description so the friendly text
+        // from the operation branches above is not lost.
         throw new NodeApiError(this.getNode(), error as JsonObject, {
           itemIndex: i,
+          message: (error as Error).message,
+          description: (error as { description?: string }).description,
         });
       }
     }

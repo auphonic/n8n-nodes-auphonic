@@ -47,16 +47,18 @@ Creates a new production from a preset and an input audio file, and optionally s
   - **Summary / Description** — a summary or description for the production.
   - **Tags** — comma-separated tags.
   - **Webhook URL** — a URL that Auphonic calls when processing is complete.
+- **Simplify** — when enabled (the default), returns a reduced set of the most useful production fields instead of the full raw API response.
 
-Returns the created production's data as returned by the Auphonic API.
+Returns the created production. With **Simplify** on (the default) this is a compact object — `uuid`, `status`, `title`, `length`, `format`, `has_video`, `output_files`, `status_page`, and `warning` (only when present). With it off, the full raw production object from the Auphonic API.
 
 #### Get Production Details
 
 Fetches the full details of an existing production by its UUID.
 
 - **Production UUID** — the production to retrieve. Defaults to `={{ $json.uuid }}`, so it reads the `uuid` from the incoming item (for example, the output of the Auphonic Trigger).
+- **Simplify** — when enabled (the default), returns a reduced set of the most useful production fields instead of the full raw API response.
 
-Returns the production object, including its `output_files` array, `status`, `metadata`, `chapters`, and more.
+Returns the production. With **Simplify** on (the default) it is the compact object described under [Create Production](#create-production) above. With it off, the full raw production object, including its `output_files` array, `status`, `metadata`, `chapters`, and more.
 
 #### Download Output File
 
@@ -116,7 +118,7 @@ The trigger emits the full production object, so downstream nodes have everythin
 A finished production usually has several output files (for example an MP3, a video, and a transcript). Because the number and type of outputs is only known at runtime, routing happens on the data rather than on fixed node outputs:
 
 1. Start with the **Auphonic Trigger** (or a **Get Production Details** operation) so you have the production object, including its `output_files` array.
-2. Add a core **Split Out** node and set _Fields To Split Out_ to `output_files`. This produces **one item per output file**, each with `download_url`, `filename`, `format`, and `ending`.
+2. Add a core **Split Out** node and set _Fields To Split Out_ to `output_files`. This produces **one item per output file**, each with `download_url`, `filename`, `format`, and `ending`. (This works whether **Simplify** is on or off — the simplified `output_files` keeps these fields, and the Trigger always emits them.)
 3. Add a core **Switch** node and branch on the file type — for example `={{ $json.format }}` or `={{ $json.ending }}` (`mp3`, `wav`, `mp4`, …), or the production-level `has_video` flag.
 4. On each branch that needs the bytes, add the **Auphonic → Download Output File** operation. Its **Download URL** field already defaults to `={{ $json.download_url }}`, so it downloads the current file with no extra configuration.
 5. Send the downloaded binary to its destination (Google Drive, S3, YouTube, an email, and so on).
@@ -135,6 +137,12 @@ If you're new to n8n, see [Try it out](https://docs.n8n.io/try-it-out/) in the n
 - [Auphonic authentication documentation](https://auphonic.com/help/api/authentication.html)
 
 ## Version history
+
+### 0.1.1
+
+- Added a **Simplify** option (on by default) to **Create Production** and **Get Production Details** that returns a compact subset of the production instead of the full raw API response. The simplified `output_files` keeps the fields the download flow needs.
+- Clearer, actionable error messages for preset loading, Create, Get, and Download failures, each with a description explaining how to resolve it.
+- UX polish: renamed the operation to **Get**, refined action labels and placeholders, and quoted field names in descriptions.
 
 ### 0.1.0
 
