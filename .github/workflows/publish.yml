@@ -1,24 +1,22 @@
-# Publishes this n8n community node package to npm on every version tag push.
+# Stages this n8n community node to npm on every version tag push, using OIDC
+# Trusted Publishing — no long-lived npm token. The staged version is NOT public
+# until a maintainer approves it with a 2FA challenge, so publishing is gated by
+# a human. Provenance is generated automatically (an n8n verification
+# requirement) because the stage runs via OIDC from this repo/workflow.
 #
-# Starting May 1 2026, n8n requires all community nodes to be published via
-# GitHub Actions with npm provenance statements. This workflow satisfies that
-# requirement: `npm run release` (in CI) runs lint + build, then publishes with
-# provenance enabled. Provenance lets anyone cryptographically verify that the
-# package was built by this exact workflow, from this exact repository/commit.
-#
-# ONE-TIME SETUP (Option B — npm automation/granular token):
-#   Add an `NPM_TOKEN` repository secret (Settings -> Secrets and variables ->
-#   Actions) with publish rights to n8n-nodes-auphonic. It is written to .npmrc
-#   below only for the publish step.
-#
-# TODO(security): migrate to OIDC Trusted Publishing to drop the NPM_TOKEN
-#   secret. See https://docs.npmjs.com/trusted-publishers — once configured,
-#   leave NPM_TOKEN unset and the token line below becomes a no-op.
+# ONE-TIME SETUP (already done): on npmjs.com, the package's Trusted Publisher is
+# configured for GitHub Actions -> owner "auphonic", repo "n8n-nodes-auphonic",
+# workflow "publish.yml", allowed action "npm stage publish". No NPM_TOKEN secret
+# is needed or used.
 #
 # RELEASE PROCESS:
-#   Run `npm run release` locally to lint, build, bump the version, update the
-#   changelog, commit, tag, and push — the tag push triggers this workflow.
-#   (You can also tag manually: `git tag v0.1.0 && git push origin v0.1.0`.)
+#   1. Bump the version in package.json and commit it.
+#   2. git tag v0.1.1 && git push origin v0.1.1
+#      -> this workflow lints, builds, and STAGES the version (not yet public).
+#   3. Review it: npmjs.com -> package -> Staged Packages (or `npm stage list` /
+#      `npm stage view <id>`).
+#   4. Approve to publish:  npm stage approve <id>   (completes the 2FA challenge)
+#      or discard:          npm stage reject <id>
 
 name: Publish
 
@@ -31,12 +29,12 @@ on:
   workflow_dispatch:
 
 jobs:
-  publish:
-    name: Publish to npm
+  stage:
+    name: Stage to npm
     runs-on: ubuntu-latest
 
     permissions:
-      id-token: write # required to mint the OIDC token for npm provenance
+      id-token: write # required for OIDC trusted publishing + provenance
       contents: read # least-privilege
 
     steps:
@@ -46,17 +44,24 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "lts/*"
+          registry-url: "https://registry.npmjs.org"
           cache: "npm"
+
+      - name: Upgrade npm for trusted publishing + staging
+        # OIDC trusted publishing needs npm >= 11.5.1; `npm stage` needs >= 11.18.
+        # Node's bundled npm is 10.x, so pull the latest.
+        run: npm install -g npm@latest
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Release
-        # Publishes to npm with provenance. Lint and build run automatically as
-        # part of `npm run release` in CI (GITHUB_ACTIONS is set), which also
-        # sets RELEASE_MODE so the prepublishOnly guard allows the publish.
-        run: |
-          [ -n "$NPM_TOKEN" ] && npm config set //registry.npmjs.org/:_authToken "$NPM_TOKEN"
-          npm run release
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Stage to npm (OIDC; provenance automatic; awaits 2FA approval)
+        # RELEASE_MODE bypasses the prepublishOnly guard (n8n-node prerelease),
+        # which fires on `npm stage publish` just like a direct publish.
+        run: RELEASE_MODE=true npm stage publish --access public
