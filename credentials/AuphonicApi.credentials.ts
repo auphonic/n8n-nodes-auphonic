@@ -5,7 +5,10 @@ import type {
   ICredentialType,
   INodeProperties,
 } from "n8n-workflow";
-import { AUPHONIC_BASE_URL } from "../nodes/Auphonic/constants";
+import {
+  AUPHONIC_BASE_URL,
+  AUPHONIC_USER_AGENT,
+} from "../nodes/Auphonic/constants";
 
 export class AuphonicApi implements ICredentialType {
   name = "auphonicApi";
@@ -34,6 +37,7 @@ export class AuphonicApi implements ICredentialType {
     properties: {
       headers: {
         Authorization: "=Bearer {{$credentials.apiKey}}",
+        "User-Agent": AUPHONIC_USER_AGENT,
       },
     },
   };
