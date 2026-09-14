@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-auphonic",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "n8n community node for Auphonic: a trigger that starts a workflow when a production finishes processing, and an action to create and start new productions.",
   "license": "MIT",
   "homepage": "https://auphonic.com",
