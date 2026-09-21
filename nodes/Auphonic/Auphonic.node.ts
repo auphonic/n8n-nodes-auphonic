@@ -287,7 +287,7 @@ export class Auphonic implements INodeType {
           {
             method: "GET",
             url: `${AUPHONIC_BASE_URL}/presets.json`,
-            qs: { minimal_data: 1, limit: 100 },
+            qs: { minimal_data: 1, limit: 100, preset_type: 'all_presets' },
             json: true,
           },
         )) as AuphonicResponse;
