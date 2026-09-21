@@ -1,11 +1,22 @@
 {
   "name": "n8n-nodes-auphonic",
   "version": "0.1.3",
-  "description": "n8n community node for Auphonic: a trigger that starts a workflow when a production finishes processing, and an action to create and start new productions.",
+  "description": "n8n community node for Auphonic: automatic audio post production with loudness normalization, noise reduction and transcription. Create productions, fetch their details, download output files, and trigger workflows when processing finishes.",
   "license": "MIT",
   "homepage": "https://auphonic.com",
   "keywords": [
-    "n8n-community-node-package"
+    "n8n-community-node-package",
+    "n8n",
+    "auphonic",
+    "audio",
+    "podcast",
+    "audio-processing",
+    "audio-post-production",
+    "loudness",
+    "noise-reduction",
+    "transcription",
+    "mastering",
+    "speech"
   ],
   "author": {
     "name": "Auphonic",

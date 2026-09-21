@@ -45,7 +45,7 @@ export class AuphonicTrigger implements INodeType {
     version: 1,
     subtitle: "On production finished",
     description:
-      "Starts the workflow when Auphonic finishes processing a production",
+      "Starts the workflow when an Auphonic audio/video production finishes processing",
     defaults: {
       name: "Auphonic Trigger",
     },
