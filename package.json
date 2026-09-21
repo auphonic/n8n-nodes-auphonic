@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-auphonic",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "n8n community node for Auphonic: automatic audio post production with loudness normalization, noise reduction and transcription. Create productions, fetch their details, download output files, and trigger workflows when processing finishes.",
   "license": "MIT",
   "homepage": "https://auphonic.com",
